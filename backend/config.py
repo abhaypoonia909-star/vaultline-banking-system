@@ -21,11 +21,24 @@ def _database_url(fallback_sqlite=True):
     return normalize_database_url(url)
 
 
+FRONTEND_ORIGIN = "https://frontend-six-gules-49.vercel.app"
+
+
 def _origins(default):
     raw = os.getenv("CORS_ORIGINS", "").strip()
     if raw:
         return [item.strip().rstrip("/") for item in raw.split(",") if item.strip()]
     return list(default)
+
+
+def runtime_cors_origins(selected="development"):
+    defaults = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    if selected == "production" or os.getenv("VERCEL"):
+        defaults = [FRONTEND_ORIGIN]
+    origins = _origins(defaults)
+    if (selected == "production" or os.getenv("VERCEL")) and FRONTEND_ORIGIN not in origins:
+        origins.append(FRONTEND_ORIGIN)
+    return origins
 
 
 class Config:
@@ -54,7 +67,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TRUST_PROXY = os.getenv("TRUST_PROXY", "1") == "1"
     SQLALCHEMY_DATABASE_URI = _database_url(fallback_sqlite=False)
-    CORS_ORIGINS = _origins(["https://frontend-six-gules-49.vercel.app"])
+    CORS_ORIGINS = _origins([FRONTEND_ORIGIN])
     # Vercel cold starts must not create tables unless this is explicitly enabled.
     AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "0" if os.getenv("VERCEL") else "1") == "1"
 

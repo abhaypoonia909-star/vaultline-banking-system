@@ -9,7 +9,7 @@ from app.errors import register_error_handlers
 from app.extensions import db, jwt, limiter, migrate
 from app.security.jwt_handlers import register_jwt_handlers
 from app.services.bootstrap import ensure_admin
-from config import config_by_name
+from config import config_by_name, runtime_cors_origins
 
 VERCEL_INSTANCE_PATH = "/tmp/vaultline-instance"
 
@@ -34,6 +34,7 @@ def create_app(config_name=None):
 
     application = Flask(__name__, **flask_kwargs)
     application.config.from_object(config_by_name[selected])
+    application.config["CORS_ORIGINS"] = runtime_cors_origins(selected)
 
     _configure_database_engine(application)
     _assert_production_safety(application)
@@ -48,9 +49,10 @@ def create_app(config_name=None):
     limiter.init_app(application)
     CORS(
         application,
-        resources={r"/api/*": {"origins": application.config["CORS_ORIGINS"]}},
+        origins=application.config["CORS_ORIGINS"],
         allow_headers=["Authorization", "Content-Type"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        supports_credentials=False,
     )
 
     from app import models  # noqa: F401

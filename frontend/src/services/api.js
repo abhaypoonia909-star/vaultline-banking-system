@@ -1,6 +1,14 @@
 import axios from "axios";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+function readApiBaseUrl() {
+  const raw = import.meta.env.VITE_API_BASE_URL;
+  if (typeof raw !== "string") {
+    return "";
+  }
+  return raw.trim().replace(/\/+$/, "");
+}
+
+export const API_BASE_URL = readApiBaseUrl();
 const TOKEN_KEY = "vaultline_token";
 
 const api = axios.create({

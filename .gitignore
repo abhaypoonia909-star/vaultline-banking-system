@@ -3,10 +3,10 @@
 .env.*
 !.env.example
 !.env.development
+!.env.production
 backend/.env
 frontend/.env
 frontend/.env.local
-frontend/.env.production
 accounts.txt
 *.db
 *.sqlite3

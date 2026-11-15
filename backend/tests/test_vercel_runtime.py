@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlalchemy.pool import NullPool
 
 from app import create_app
-from config import ProductionConfig, normalize_database_url
+from config import FRONTEND_ORIGIN, ProductionConfig, normalize_database_url
 
 INSTANCE_ROOT = Path(__file__).resolve().parents[1] / "instance"
 
@@ -57,7 +57,29 @@ def test_vercel_instance_directory_is_writable(monkeypatch):
         assert application.config["AUTO_CREATE_TABLES"] is False
         assert application.config["PRODUCTION"] is True
         assert application.config["SQLALCHEMY_ENGINE_OPTIONS"].get("poolclass") is NullPool
+        assert FRONTEND_ORIGIN in application.config["CORS_ORIGINS"]
         assert "/api/health" in {rule.rule for rule in application.url_map.iter_rules()}
+
+        client = application.test_client()
+        preflight = client.open(
+            "/api/auth/register",
+            method="OPTIONS",
+            headers={
+                "Origin": FRONTEND_ORIGIN,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Authorization, Content-Type",
+            },
+        )
+        assert preflight.headers.get("Access-Control-Allow-Origin") == FRONTEND_ORIGIN
+        blocked = client.open(
+            "/api/auth/register",
+            method="OPTIONS",
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        assert blocked.headers.get("Access-Control-Allow-Origin") != "https://evil.example"
     finally:
         shutil.rmtree(instance_dir, ignore_errors=True)
 
