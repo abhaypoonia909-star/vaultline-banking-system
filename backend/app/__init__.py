@@ -2,7 +2,7 @@ import os
 
 from flask import Flask, jsonify
 from flask_cors import CORS
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.errors import register_error_handlers
@@ -20,12 +20,7 @@ def create_app(config_name=None):
     application = Flask(__name__)
     application.config.from_object(config_by_name[selected])
 
-    if application.config.get("TESTING"):
-        application.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "connect_args": {"check_same_thread": False},
-            "poolclass": StaticPool,
-        }
-
+    _configure_database_engine(application)
     _assert_production_safety(application)
 
     if application.config.get("TRUST_PROXY"):
@@ -88,13 +83,38 @@ def create_app(config_name=None):
     return application
 
 
+def _configure_database_engine(application):
+    if application.config.get("TESTING"):
+        application.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"check_same_thread": False},
+            "poolclass": StaticPool,
+        }
+        return
+    if os.getenv("VERCEL"):
+        application.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "poolclass": NullPool,
+            "pool_pre_ping": True,
+        }
+        return
+    if application.config.get("PRODUCTION"):
+        application.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,
+            "pool_recycle": 280,
+        }
+
+
 def _assert_production_safety(application):
     if not application.config.get("PRODUCTION"):
         return
     secret = application.config.get("SECRET_KEY") or ""
     jwt_secret = application.config.get("JWT_SECRET_KEY") or ""
     db_uri = application.config.get("SQLALCHEMY_DATABASE_URI") or ""
-    if secret.startswith("dev-only") or jwt_secret.startswith("dev-only") or len(secret) < 16:
+    if (
+        secret.startswith("dev-only")
+        or jwt_secret.startswith("dev-only")
+        or len(secret) < 16
+        or len(jwt_secret) < 16
+    ):
         raise RuntimeError("Set SECRET_KEY and JWT_SECRET_KEY before production startup")
     if not db_uri.startswith("postgresql"):
         raise RuntimeError("Production requires a PostgreSQL DATABASE_URL")

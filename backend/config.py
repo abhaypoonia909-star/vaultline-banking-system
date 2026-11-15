@@ -21,12 +21,11 @@ def _database_url(fallback_sqlite=True):
     return normalize_database_url(url)
 
 
-def _origins():
-    raw = os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
-    )
-    return [item.strip() for item in raw.split(",") if item.strip()]
+def _origins(default):
+    raw = os.getenv("CORS_ORIGINS", "").strip()
+    if raw:
+        return [item.strip().rstrip("/") for item in raw.split(",") if item.strip()]
+    return list(default)
 
 
 class Config:
@@ -35,7 +34,7 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=int(os.getenv("JWT_EXPIRES_HOURS", "8")))
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    CORS_ORIGINS = _origins()
+    CORS_ORIGINS = _origins(["http://localhost:5173", "http://127.0.0.1:5173"])
     AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "1") == "1"
     AUTO_SEED_ADMIN = os.getenv("AUTO_SEED_ADMIN", "1") == "1"
     RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "1") == "1"
@@ -55,6 +54,9 @@ class ProductionConfig(Config):
     DEBUG = False
     TRUST_PROXY = os.getenv("TRUST_PROXY", "1") == "1"
     SQLALCHEMY_DATABASE_URI = _database_url(fallback_sqlite=False)
+    CORS_ORIGINS = _origins(["https://frontend-six-gules-49.vercel.app"])
+    # Vercel cold starts must not create tables unless this is explicitly enabled.
+    AUTO_CREATE_TABLES = os.getenv("AUTO_CREATE_TABLES", "0" if os.getenv("VERCEL") else "1") == "1"
 
 
 class TestingConfig(Config):
