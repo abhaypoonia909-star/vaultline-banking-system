@@ -11,13 +11,28 @@ from app.security.jwt_handlers import register_jwt_handlers
 from app.services.bootstrap import ensure_admin
 from config import config_by_name
 
+VERCEL_INSTANCE_PATH = "/tmp/vaultline-instance"
+
+
+def _writable_instance_path():
+    if not os.getenv("VERCEL"):
+        return None
+    path = os.getenv("INSTANCE_PATH", VERCEL_INSTANCE_PATH)
+    os.makedirs(path, exist_ok=True)
+    return os.path.abspath(path)
+
 
 def create_app(config_name=None):
     selected = config_name or os.getenv("APP_ENV", "development")
     if selected not in config_by_name:
         raise RuntimeError(f"Unknown APP_ENV '{selected}'")
 
-    application = Flask(__name__)
+    instance_path = _writable_instance_path()
+    flask_kwargs = {}
+    if instance_path is not None:
+        flask_kwargs["instance_path"] = instance_path
+
+    application = Flask(__name__, **flask_kwargs)
     application.config.from_object(config_by_name[selected])
 
     _configure_database_engine(application)
@@ -26,6 +41,7 @@ def create_app(config_name=None):
     if application.config.get("TRUST_PROXY"):
         application.wsgi_app = ProxyFix(application.wsgi_app, x_for=1, x_proto=1)
 
+    os.makedirs(application.instance_path, exist_ok=True)
     db.init_app(application)
     migrate.init_app(application, db)
     jwt.init_app(application)
