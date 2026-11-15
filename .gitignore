@@ -1,0 +1,37 @@
+# Secrets and local data
+.env
+.env.*
+!.env.example
+!.env.development
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+accounts.txt
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+backend/.venv/
+backend/instance/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
